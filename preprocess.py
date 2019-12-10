@@ -36,10 +36,12 @@ def get_danceability(query, sp):
     param: the query to search Spotify, the spotify object to make calls to
     returns: 1 if the song is danceable, 0 if not
     """
-    search = sp.search(query,type='track', limit =5)
+    search = sp.search(query, type='track', limit =1)
     if search["tracks"]["items"]:
         trackID = search["tracks"]["items"][0]["uri"]
         features = sp.audio_features(tracks=[trackID])
+        if features[0] == None:
+            return -1
         danceability = features[0]["danceability"]
         if danceability >= 0.6:
             dance_track = 1
@@ -63,11 +65,9 @@ def create_data(songs, labels):
     num_occurences = dict(zip(unique, counts))
     num_valid_songs = num_occurences[1] + num_occurences[0]
     data = np.zeros([num_valid_songs, DATA_SIZE, 12])
-    new_labels = []
     acc = 0
-    for i in range(1,len(songs)-1):
+    for i in range(1,len(songs)):
         if labels[i] != -1:
-            new_labels.append(labels[i])
             song_file = hdf.open_h5_file_read(songs[i])
             MFCC_data = np.array(hdf.get_segments_timbre(song_file))
             if MFCC_data.shape[0] < DATA_SIZE:
@@ -79,8 +79,8 @@ def create_data(songs, labels):
             data[acc] = MFCC_data
             acc+=1
             song_file.close()
-    new_labels = np.array(new_labels)
-    return data, labels
+    return data
+
 
 def create_labels(songs, sp):
     # Songs now holds list of all file paths to each song as a string
@@ -93,29 +93,21 @@ def create_labels(songs, sp):
     """
     print("creating labels...")
     acc = 0
-    labels = np.zeros([len(songs) -1])
+    labels = []
     for i in range(1,len(songs)):
+        print(i)
         file_object= hdf.open_h5_file_read(songs[i])
         artist_name = hdf.get_artist_name(file_object).decode("utf-8")
         title = re.sub(r"\(.*\)","",hdf.get_title(file_object).decode("utf-8"))
         query = "artist: " + artist_name + " track: " + title
         label = get_danceability(query, sp)
-        if label == -1:
+        if label != -1:
+            labels.append(label)
+        else:
             acc+=1
-        labels[i-1] = label
         file_object.close()
-        print(i)
     print("NUMBER OF LOST SONGS = ", acc)
-    return labels
-
-def get_audio_features(songID, sp):
-    """
-    Returns a json object containing the audio features of a given song
-
-    param: the unique spotify TrackID, the spotify object
-    returns: JSON object of features
-    """
-    return sp.audio_features(tracks=[songID])
+    return np.array(labels, dtype=np.int32)
 
 def get_data(filename):
     """
@@ -131,16 +123,13 @@ def get_data(filename):
     token = credentials.get_access_token()
     sp = spotipy.Spotify(auth=token)
     songs = get_all_files(filename, '.h5')
-    primary_labels = create_labels(songs, sp)
-    np.savetxt('test.txt', primary_labels, delimiter=',')
-    data,labels = create_data(songs, primary_labels)
+    labels = create_labels(songs, sp)
+    with open("labels.txt", "wb") as f:
+        np.savetxt(f, labels.astype(int), fmt='%i', delimiter=",")
+    data = create_data(songs, primary_labels)
     print("SIZE OF DATA = ", data.shape)
     print("SIZE OF LABELS = ", labels.shape)
-
     return data, labels
-
-# if __name__ == '__main__':
-#    get_data("./MillionSongSubset/")
 
 ''' ----------------------------------------------------------------------------
 Code to load JSON data that holds Spotify Track ID for each song in dataset if it exists

@@ -9,7 +9,7 @@ class Inception_Model(tf.keras.Model):
     def __init__(self):
         '''Init hyperparameters and layers'''
         #hyperparameters
-
+        super(Inception_Model, self).__init__()
         self.batch_size = 128
         self.inception_filters = 36
         #layers
@@ -17,7 +17,7 @@ class Inception_Model(tf.keras.Model):
         self.inception_2 = tf.keras.layers.Conv2D(filters=self.inception_filters, kernel_size=[14,8], padding='same',activation='relu')
         self.inception_3 = tf.keras.layers.Conv2D(filters=self.inception_filters, kernel_size=[16,16], padding='same',activation='relu')
 
-        self.concatenate = tf.keras.layers.concatenate(axis=3)
+        self.concatenate = tf.keras.layers.concatenate(axis=2)
 
         self.max_pool1 = tf.keras.layers.MaxPool2D(pool_size=2)
         self.max_pool2 = tf.keras.layers.MaxPool2D(pool_size=2)
@@ -56,14 +56,14 @@ class Inception_Model(tf.keras.Model):
         out = self.conv_4(self.conv_3(self.conv_2(max2)))
 
         #return tf.dense(out)
-        return reduce_mean(out)
+        return tf.Math.reduce_mean(out, axis=1)
 
     def create_classes(self, probs):
         return tf.greater(probs,0.5)
 
     @tf.function
     def loss_function(self, probs, labels):
-        return tf.reduce_mean(tf.keras.losses.binary_crossentropy(labels,self.create_classes(probs)))
+        return tf.reduce_mean(tf.keras.losses.binary_crossentropy(labels, self.create_classes(probs)))
 
     def accuracy_function(self, probs, labels):
         assignments = self.create_classes(probs)
@@ -82,55 +82,58 @@ def create_kfolds(data, labels, folds=10):
     data = data[0:7400]
     labels = labels[0:7400]
     batched_data = np.reshape(data, (10,740,1024,12))
-    batched_labels = np.reshape(labels, (10,740,1))
+    batched_labels = np.reshape(labels, (10,740))
 
     return batched_data, batched_labels
 
 
 
 def train(model, train_inputs, train_labels):
-    num_batches = (train_inputs.shape)[0]
-    for i in range(num_batches):
-        batch_inputs = np.squeeze(train_inputs[i,:,:],axis=0)
-        batch_labels = np.squeeze(train_labels[i,:],axis=0)
-        with tf.GradientTape() as tape:
-            probs = model.call(batch_inputs)
-            loss = model.loss_function(probs,batch_labels)
-        gradients = tape.gradient(loss, model.trainable_variables)
-        model.optimizer.apply_gradients(zip(gradients,model.trainable_variables))
+    squeezed_inputs = tf.squeeze(train_inputs,axis=0)
+    squeezed_labels = tf.squeeze(train_labels,axis=0)
+    with tf.GradientTape() as tape:
+        probs = model.call(squeezed_inputs)
+        loss = model.loss_function(probs,squeezed_labels)
+    gradients = tape.gradient(loss, model.trainable_variables)
+    model.optimizer.apply_gradients(zip(gradients,model.trainable_variables))
 
 
 
 def test(model, test_inputs, test_labels):
-    probs = model.call(test_inputs)
-    accuracy = model.accuracy_function(probs,test_labels)
-    print(accuracy)
+    squeezed_inputs = tf.squeeze(test_inputs,axis=0)
+    squeezed_labels = tf.squeeze(test_labels,axis=0)
+    probs = model.call(squeezed_inputs)
+    accuracy = model.accuracy_function(probs,squeezed_labels)
+    return accuracy
 
 def main():
     data, labels = preprocess.get_data("./MillionSongSubset/")
-    # model = Inception_Model()
-    # num_epochs = 5
-    # while i <= num_epochs:
-    #     num_songs = data.shape[0]
-    # 	idx = np.arange(num_songs)
-    # 	shuffled = tf.random.shuffle(idx)
-    # 	shuffled_inputs = tf.gather(data, shuffled, axis=0)
-    # 	shuffled_labels = tf.gather(labels, shuffled, axis=0)
-    #     batched_data, batched_labels = create_kfolds(data, labels)
-    #     for i in range(0, batched_data.shape(0)):
-    #         if i == 0:
-    #             train_data = batched_data[1:batched_data.shape(0)]
-    #             train_labels = batched_labels[1:batched_data.shape(0)]
-    #             test_data = batched_data[0,:,:,:]
-    #             test_labels = batched_labels[0,:,:]
-    #         else:
-    #             train_data = np.stack((batched_data[:i],batched_data[i:]),axis=0)
-    #             train_labels = np.stack((batched_labels[:i],batched_labels[i:]),axis=0)
-    #             test_data = batched_data[i]
-    #             test_labels = batched_labels[i]
-    #
-    #         train(model,train_data,train_labels)
-    #         test(model,test_data,test_labels)
+    model = Inception_Model()
+    num_epochs = 5
+    while j <= num_epochs:
+        num_songs = data.shape[0]
+        idx = np.arange(num_songs)
+        shuffled = tf.random.shuffle(idx)
+        shuffled_inputs = tf.gather(data, shuffled, axis=0)
+        shuffled_labels = tf.gather(labels, shuffled, axis=0)
+        batched_data, batched_labels = create_kfolds(shuffled_inputs, shuffled_labels)
+        for i in range(0, batched_data.shape(0)):
+            if i == 0:
+                train_data = batched_data[1:batched_data.shape(0)]
+                train_labels = batched_labels[1:batched_data.shape(0)]
+                test_data = batched_data[0,:,:,:]
+                test_labels = batched_labels[0,:,:]
+            else:
+                train_data = np.stack((batched_data[:i],batched_data[i:]),axis=0)
+                train_labels = np.stack((batched_labels[:i],batched_labels[i:]),axis=0)
+                test_data = batched_data[i]
+                test_labels = batched_labels[i]
+
+            train(model,train_data,train_labels)
+            accuracy = test(model,test_data,test_labels)
+            print("Epoch ", j " Accuracy: ", accuracy)
+
+        j+=1
 
 
 
