@@ -17,7 +17,7 @@ class Inception_Model(tf.keras.Model):
         self.inception_2 = tf.keras.layers.Conv2D(filters=self.inception_filters, kernel_size=[14,8], padding='same',activation='relu')
         self.inception_3 = tf.keras.layers.Conv2D(filters=self.inception_filters, kernel_size=[16,16], padding='same',activation='relu')
 
-        self.concatenate = tf.keras.layers.concatenate(axis=2)
+
 
         self.max_pool1 = tf.keras.layers.MaxPool2D(pool_size=2)
         self.max_pool2 = tf.keras.layers.MaxPool2D(pool_size=2)
@@ -29,7 +29,7 @@ class Inception_Model(tf.keras.Model):
 
         self.conv_2 = tf.keras.layers.Conv2D(filters=self.inception_filters/2, kernel_size=[1,1], padding='same',activation='relu')
         self.conv_3 = tf.keras.layers.Conv2D(filters=self.inception_filters/4, kernel_size=[1,1], padding='same',activation='relu')
-        self.conv_4 = tf.keras.layers.Conv2D(filters=1, kernel_size=[1,1], padding='same',actvation="softmax")
+        self.conv_4 = tf.keras.layers.Conv2D(filters=1, kernel_size=[1,1], padding='same',activation="softmax")
 
         #self.dense = tf.keras.layers.Dense(units = 2)
 
@@ -45,7 +45,7 @@ class Inception_Model(tf.keras.Model):
         inception1 = self.inception_1(inputs)
         inception2 = self.inception_2(inputs)
         inception3 = self.inception_3(inputs)
-        combined = self.concatenate((inception1,inception2,inception3))
+        combined = tf.keras.layers.concatenate((inception1,inception2,inception3),axis=2)
 
         max1 = self.max_pool2(self.max_pool1(combined))
 
@@ -77,7 +77,7 @@ class Inception_Model(tf.keras.Model):
 
 
 def create_kfolds(data, labels, folds=10):
-    assert(data.shape(0) == labels.shape(0))
+    assert(data.shape[0] == labels.shape[0])
     #7400 --> 10 x 740 7400, 1024 x 12
     data = data[0:7400]
     labels = labels[0:7400]
@@ -110,6 +110,7 @@ def main():
     data, labels = preprocess.get_data("./MillionSongSubset/")
     model = Inception_Model()
     num_epochs = 5
+    j=0
     while j <= num_epochs:
         num_songs = data.shape[0]
         idx = np.arange(num_songs)
@@ -117,10 +118,10 @@ def main():
         shuffled_inputs = tf.gather(data, shuffled, axis=0)
         shuffled_labels = tf.gather(labels, shuffled, axis=0)
         batched_data, batched_labels = create_kfolds(shuffled_inputs, shuffled_labels)
-        for i in range(0, batched_data.shape(0)):
+        for i in range(0, batched_data.shape[0]):
             if i == 0:
-                train_data = batched_data[1:batched_data.shape(0)]
-                train_labels = batched_labels[1:batched_data.shape(0)]
+                train_data = batched_data[1:batched_data.shape[0]]
+                train_labels = batched_labels[1:batched_data.shape[0]]
                 test_data = batched_data[0,:,:,:]
                 test_labels = batched_labels[0,:,:]
             else:
@@ -131,7 +132,7 @@ def main():
 
             train(model,train_data,train_labels)
             accuracy = test(model,test_data,test_labels)
-            print("Epoch ", j " Accuracy: ", accuracy)
+            print("Epoch ", j, " Accuracy: ", accuracy)
 
         j+=1
 

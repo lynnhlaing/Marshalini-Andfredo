@@ -51,7 +51,7 @@ def get_danceability(query, sp):
         dance_track = -1
     return dance_track
 
-def create_data(songs, labels):
+def create_data(songs, labels, broken_labels):
     """
     Goes through all songs in list to find the MFCC timbre data to train on
 
@@ -61,14 +61,17 @@ def create_data(songs, labels):
     with only valid songs
     """
     print("creating data...")
-    unique, counts = np.unique(labels, return_counts=True)
-    num_occurences = dict(zip(unique, counts))
-    num_valid_songs = num_occurences[1] + num_occurences[0]
-    data = np.zeros([num_valid_songs, DATA_SIZE, 12])
+    zero_fix_songs = songs[1:len(songs)]
+    # unique, counts = np.unique(labels, return_counts=True)
+    # num_occurences = dict(zip(unique, counts))
+    # num_valid_songs = num_occurences[1] + num_occurences[0]
+    valid_songs = np.delete(zero_fix_songs,broken_labels,axis=0)
+    data = np.zeros([valid_songs.shape[0], DATA_SIZE, 12])
     acc = 0
-    for i in range(1,len(songs)):
-        if labels[i] != -1:
-            song_file = hdf.open_h5_file_read(songs[i])
+    for i in range(0,len(valid_songs)):
+        print(i)
+        if labels[i-1] != -1:
+            song_file = hdf.open_h5_file_read(valid_songs[i])
             MFCC_data = np.array(hdf.get_segments_timbre(song_file))
             if MFCC_data.shape[0] < DATA_SIZE:
                 pad_amount = DATA_SIZE - MFCC_data.shape[0]
@@ -94,6 +97,7 @@ def create_labels(songs, sp):
     print("creating labels...")
     acc = 0
     labels = []
+    broken_labels = []
     for i in range(1,len(songs)):
         print(i)
         file_object= hdf.open_h5_file_read(songs[i])
@@ -104,10 +108,11 @@ def create_labels(songs, sp):
         if label != -1:
             labels.append(label)
         else:
+            broken_labels.append(i)
             acc+=1
         file_object.close()
     print("NUMBER OF LOST SONGS = ", acc)
-    return np.array(labels, dtype=np.int32)
+    return np.array(labels, dtype=np.int32), np.array(broken_labels, dtype=np.int32)
 
 def get_data(filename):
     """
@@ -123,10 +128,16 @@ def get_data(filename):
     token = credentials.get_access_token()
     sp = spotipy.Spotify(auth=token)
     songs = get_all_files(filename, '.h5')
-    labels = create_labels(songs, sp)
-    with open("labels.txt", "wb") as f:
-        np.savetxt(f, labels.astype(int), fmt='%i', delimiter=",")
-    data = create_data(songs, primary_labels)
+    # labels, broken_labels = create_labels(songs, sp)
+    # with open("labels.txt", "wb") as f1:
+    #     np.savetxt(f1, labels.astype(int), fmt='%i', delimiter=",")
+    # with open("broken_labels.txt", "wb") as f2:
+    #     np.savetxt(f2, broken_labels.astype(int), fmt='%i', delimiter=",")
+    with open("labels.txt", "r") as f:
+        labels = np.loadtxt(f,dtype=np.int32)
+    with open("broken_labels.txt", "r") as f:
+        broken_labels = np.loadtxt(f,dtype=np.int32)
+    data = create_data(songs, labels, broken_labels)
     print("SIZE OF DATA = ", data.shape)
     print("SIZE OF LABELS = ", labels.shape)
     return data, labels
