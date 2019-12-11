@@ -48,23 +48,14 @@ class Inception_Model(tf.keras.Model):
         #[samples,1024,12,1]
 
         combined = tf.keras.layers.concatenate([inception1,inception2,inception3],axis=2)
-        print(tf.shape(combined))
         #[samples,1024,12,3]
 
         max1 = self.max_pool2(self.max_pool1(combined))
-        print(tf.shape(max1))
-
         conv1 = self.conv_1(max1)
-        print(tf.shape(conv1))
 
         max2 = self.max_pool4(self.max_pool3(conv1))
-        print(tf.shape(max2))
-
-        # intermediate = tf.transpose(max2,perm=[0,1,3,2])
         conv2 = self.conv_2(max2)
-        print(tf.shape(conv2))
         conv3=self.conv_3(conv2)
-        print(tf.shape(conv3))
         out=self.conv_4(conv3)
         # out = self.conv_4(self.conv_3(self.conv_2(intermediate)))
         print(tf.shape(out))
@@ -74,9 +65,13 @@ class Inception_Model(tf.keras.Model):
     def create_classes(self, probs):
         return tf.greater(probs,0.5)
 
-    @tf.function
+
     def loss_function(self, probs, labels):
-        return tf.math.reduce_mean(tf.keras.losses.binary_crossentropy(labels, self.create_classes(probs)))
+        print(probs)
+        assignment = self.create_classes(probs)
+        print(assignment)
+        print(labels)
+        return tf.math.reduce_mean(tf.keras.losses.binary_crossentropy(labels, assignment))
 
     def accuracy_function(self, probs, labels):
         assignments = self.create_classes(probs)
