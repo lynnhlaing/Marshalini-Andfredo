@@ -60,7 +60,7 @@ class Inception_Model(tf.keras.Model):
         # out = self.conv_4(self.conv_3(self.conv_2(intermediate)))
         print(tf.shape(out))
         #return tf.dense(out)
-        return tf.math.reduce_mean(out, axis=1)
+        return tf.squeeze(tf.math.reduce_mean(out, axis=1))
 
     def create_classes(self, probs):
         return tf.greater(probs,0.5)
@@ -68,10 +68,10 @@ class Inception_Model(tf.keras.Model):
 
     def loss_function(self, probs, labels):
         print(probs)
-        assignment = self.create_classes(probs)
+        # assignment = self.create_classes(probs)
         print(assignment)
         print(labels)
-        return tf.math.reduce_mean(tf.keras.losses.binary_crossentropy(labels, assignment))
+        return tf.math.reduce_mean(tf.keras.losses.binary_crossentropy(labels, assignment,from_logits=True))
 
     def accuracy_function(self, probs, labels):
         assignments = self.create_classes(probs)
