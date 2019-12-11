@@ -69,7 +69,8 @@ def create_data(songs, labels, broken_labels):
     data = np.zeros([valid_songs.shape[0], DATA_SIZE, 12])
     acc = 0
     for i in range(0,len(valid_songs)):
-        print(i)
+        if i % 100 == 0:
+            print(i)
         if labels[i-1] != -1:
             song_file = hdf.open_h5_file_read(valid_songs[i])
             MFCC_data = np.array(hdf.get_segments_timbre(song_file))
